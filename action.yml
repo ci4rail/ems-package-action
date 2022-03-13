@@ -5,6 +5,12 @@ inputs:
     description: "File patterns to exclude from package. Patterns must be white space separated"
     required: false
     default: ""
+  access-token:
+    description: "Personal access token for private repos"
+    required: true
+  rclone-params:
+    description: "rclone configuration parameters for sharepoint upload"
+    required: true
 
 runs:
   using: "composite"
@@ -12,7 +18,7 @@ runs:
     - uses: actions/checkout@v2
       with:
         submodules: "recursive"
-        token: ${{ secrets.PAT_TOKEN }}
+        token: ${{ inputs.access-token }}
     - name: Generate filename
       id: ident
       run: |
@@ -31,7 +37,7 @@ runs:
     - name: Upload ZIP to release
       uses: svenstaro/upload-release-action@v2
       with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        repo_token: ${{ inputs.access-token }}
         file: "${{ steps.ident.outputs.zippath }}"
         asset_name: ${{ steps.ident.outputs.zipname }}"
         tag: ${{ github.ref }}
@@ -39,6 +45,6 @@ runs:
     - name: Upload to Sharepoint
       uses: wei/rclone@v1
       env:
-        RCLONE_CONF: ${{ secrets.RCLONE_PARAMS }}
+        RCLONE_CONF: ${{ inputs.rclone-params }}
       with:
         args: copy ${{ steps.ident.outputs.zippath }} ci4railengineeringdocuments:EMS-ProdData/${{ steps.ident.outputs.reponame }}
