@@ -34,6 +34,6 @@ jobs:
           exclude-patterns: |
             *.FCStd 
             ./simulation/*
-          access-token: ${{ secrets.PAT_TOKEN }}
-          rclone-params: ${{ secrets.RCLONE_PARAMS }}
+          access-token: ${{ secrets.HW_CI_TOKEN }}
+          rclone-params: ${{ secrets.RCLONE_SHAREPOINT }}
 ```
