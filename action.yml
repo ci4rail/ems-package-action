@@ -8,14 +8,11 @@ inputs:
   access-token:
     description: "Personal access token for private repos"
     required: true
-  rclone-params:
-    description: "rclone configuration parameters for sharepoint upload"
-    required: true
 
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: "recursive"
         token: ${{ inputs.access-token }}
@@ -25,9 +22,9 @@ runs:
         mkdir -p ZIP
         repo=$(echo ${{ github.repository }} | cut -d / -f 2)
         zipname=${repo}-${{ github.ref_name }}-$(date +%Y%m%#d%H%M)-ems.zip
-        echo "::set-output name=zipname::${zipname}"
-        echo "::set-output name=zippath::ZIP/${zipname}"
-        echo "::set-output name=reponame::${repo}"
+        echo "zipname=${zipname}" >> $GITHUB_OUTPUT
+        echo "zippath=ZIP/${zipname}" >> $GITHUB_OUTPUT
+        echo "reponame=${repo}" >> $GITHUB_OUTPUT
       shell: bash
     - name: ZIP Repo
       uses: ci4rail/zip-action@v1
@@ -42,9 +39,3 @@ runs:
         asset_name: ${{ steps.ident.outputs.zipname }}"
         tag: ${{ github.ref }}
         overwrite: true
-    - name: Upload to Sharepoint
-      uses: wei/rclone@v1
-      env:
-        RCLONE_CONF: ${{ inputs.rclone-params }}
-      with:
-        args: copy ${{ steps.ident.outputs.zippath }} ci4railengineeringdocuments:EMS-ProdData/${{ steps.ident.outputs.reponame }}
