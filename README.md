@@ -1,18 +1,64 @@
-# Generate production data package for EMS
+# Generate production data packages for EMS
 
-This Github action allows you to generate a package from a HW repo contents that can be sent to the EMS.
+This action packages existing KiCad jobset exports and uploads one ZIP per assembly/coating combination to the same GitHub release. It does not run KiCad: export the jobset and commit the production data before creating the release.
 
-The package is generated as a ZIP file and added to the release of the github repo. 
+## Production data layout
 
-The ZIP file is named `<repo-name>-<release-name>-<timestamp>-ems.zip`.
+The repository root must contain a `*-prod` directory, for example:
 
-For example, if the repo is named `i101-psu01` and the release is named `01A`, then the package is named `i101-psu01-01A-202201132035-ems.zip`.
+```text
+IOU16-prod/
+├── pcb/
+│   ├── IOU16-01-Gerber/       # Gerbers, drill data, .gbrjob and Coat Gerbers
+│   └── pcb-datasheet.pdf
+├── assembly/
+│   ├── A/
+│   │   ├── BOMs/IOU16-01A_BOM.csv
+│   │   ├── BOMs/IOU16-01A_BOM_parts.csv
+│   │   └── ...position, assembly PDFs, STEP, renderings
+│   └── B/
+│       └── ...corresponding variant data
+├── coating/
+│   ├── IOU16-01-coating-top.pdf
+│   └── IOU16-01-coating-bottom.pdf
+├── documentation/            # not included in EMS packages
+└── IOU16-01-odb++.zip         # optional; included when present
+```
 
-## Input Variables
+The project name comes from the production folder (`IOU16-prod` → `IOU16`), independently of the repository name (`hw-iou16`, for example). The hardware revision is the release tag, used as-is. Each direct child directory of `assembly/` must be a unique single-letter variant (case insensitive). Its files are included recursively. Each variant must contain `<Project>-<Revision><Variant>_BOM.csv`; a missing or excluded BOM fails the build, including when the release tag does not match the exported revision. The old layout with BOMs directly under `assembly/` is not supported.
 
-* `exclude-patterns`: File patterns to exclude from ZIP file. Patterns must be white space separated. Patterns are `glob` patterns, compared with pythons's `fnmatch` function and are compared against the whole path of each file. Comparisons are case insensitive. Absolute paths always begin with `./`, so the pattern must match this part as well.
-* `access-token`: A personal access token that has sufficient rights to read submodule repos and to add files to a release. For example see bitwarden entry `yoda fw-repo-ci`.
+If there are several `*-prod` directories, exactly one folder name must contain the release revision (case insensitive). Otherwise the build fails.
 
+## Package contents and naming
+
+ZIP names are `<Project>-<Revision><Variant>[Z]-<YYYYMMDDHHMM>-ems.zip`, with one UTC timestamp shared by all packages of a run.
+
+Each package preserves the production folder and its subdirectories and includes:
+
+- `pcb/` recursively, excluding Coat Gerbers in every package. Removed coating-layer references are also filtered out of `.gbrjob` indexes inside the ZIP; source files remain unchanged.
+- Exactly one `assembly/<Variant>/` directory, including its BOMs and assembly outputs.
+- The matching `<Project>-<Revision>-odb++.zip` at the production folder root, if present. ODB++ contents are copied unchanged.
+- `coating/` recursively, only in packages with suffix `Z`.
+
+Coat Gerbers are detected recursively under `pcb/`: filenames contain `Coat` and have extension `.gbr`, `.ger`, or `.gerber`, case insensitive. If found, both coated and uncoated packages are generated for every variant. `coating/` must then contain at least one non-excluded file. Without Coat Gerbers, only uncoated packages are generated, even if a `coating/` folder exists.
+
+`documentation/`, schematic sources, cost reports and all other repository files are not packaged. Files matching the global exclusions are also omitted.
+
+For variants A and B with coating data, release tag `01` produces:
+
+```text
+IOU16-01A-202610081200-ems.zip
+IOU16-01AZ-202610081200-ems.zip
+IOU16-01B-202610081200-ems.zip
+IOU16-01BZ-202610081200-ems.zip
+```
+
+## Inputs
+
+- `exclude-patterns`: Optional whitespace-separated glob patterns, matched case insensitively against each original `./`-relative repository path. `*` also matches path separators, as with Python `fnmatch`. Excluding all PCB Gerbers, a required BOM, or all coating files when Coat Gerbers exist fails the build.
+- `access-token`: Token with access to the repository/submodules and permission to upload release assets.
+
+`include-patterns` and `rclone-params` are not supported. This action uploads to GitHub releases; it does not copy files to SharePoint.
 
 ## Usage
 
@@ -24,12 +70,19 @@ on:
 jobs:
   ems-package:
     runs-on: ubuntu-latest
-    name: Build EMS Package
+    name: Build EMS Packages
     steps:
       - uses: ci4rail/ems-package-action@v1
         with:
-          exclude-patterns: |
-            *.FCStd 
-            ./simulation/*
           access-token: ${{ secrets.HW_CI_TOKEN }}
+```
+
+The updated implementation must be available at the action version referenced by the caller. Local edits alone do not change the published `@v1` action.
+
+## Validation
+
+Run the packaging integration tests locally:
+
+```sh
+python3 -m unittest discover -s tests -v
 ```

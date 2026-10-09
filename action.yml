@@ -16,26 +16,19 @@ runs:
       with:
         submodules: "recursive"
         token: ${{ inputs.access-token }}
-    - name: Generate filename
-      id: ident
-      run: |
-        mkdir -p ZIP
-        repo=$(echo ${{ github.repository }} | cut -d / -f 2)
-        zipname=${repo}-${{ github.ref_name }}-$(date +%Y%m%#d%H%M)-ems.zip
-        echo "zipname=${zipname}" >> $GITHUB_OUTPUT
-        echo "zippath=ZIP/${zipname}" >> $GITHUB_OUTPUT
-        echo "reponame=${repo}" >> $GITHUB_OUTPUT
+
+    - name: Build EMS packages
       shell: bash
-    - name: ZIP Repo
-      uses: ci4rail/zip-action@v1
-      with:
-        output-path: "${{ steps.ident.outputs.zippath }}"
-        exclude-patterns: "${{ inputs.exclude-patterns }}"
-    - name: Upload ZIP to release
+      env:
+        EXCLUDE_PATTERNS: ${{ inputs.exclude-patterns }}
+        REVISION: ${{ github.ref_name }}
+      run: python3 "${GITHUB_ACTION_PATH}/scripts/package.py"
+
+    - name: Upload ZIPs to release
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ inputs.access-token }}
-        file: "${{ steps.ident.outputs.zippath }}"
-        asset_name: ${{ steps.ident.outputs.zipname }}"
+        file: ZIP/*.zip
+        file_glob: true
         tag: ${{ github.ref }}
         overwrite: true
