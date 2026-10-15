@@ -120,6 +120,24 @@ class PackageTests(unittest.TestCase):
         self.build()
         self.assertEqual(len(list((self.root / "ZIP").glob("*.zip"))), 2)
 
+    def test_release_version_preserves_hardware_revision_leading_zero(self):
+        for tag in ("03", "03.0", "03.1", "v03.0", "03.0.0", "v03.0.0", "03.1.2-rc.1", "03.1.2+build.4"):
+            with self.subTest(tag=tag):
+                self.assertEqual(package.hardware_revision(tag), "03")
+        self.assertEqual(package.hardware_revision("R03"), "R03")
+
+    def test_versioned_release_builds_all_variant_packages(self):
+        self.coats()
+        for tag in ("01.0", "01.1", "01.0.0"):
+            with self.subTest(tag=tag):
+                result = subprocess.run(["python3", str(ACTION_ROOT / "scripts/package.py")],
+                                        cwd=self.root, env={**os.environ, "REVISION": tag, "EXCLUDE_PATTERNS": ""},
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                paths = sorted((self.root / "ZIP").glob("*.zip"))
+                self.assertEqual(len(paths), 4)
+                self.assertEqual([p.name.split("-")[1] for p in paths], ["01A", "01AZ", "01B", "01BZ"])
+
     def test_action_script_runs_from_hardware_repo(self):
         result = subprocess.run(["python3", str(ACTION_ROOT / "scripts/package.py")],
                                 cwd=self.root, env={**os.environ, "REVISION": "01", "EXCLUDE_PATTERNS": ""},

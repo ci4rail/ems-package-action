@@ -27,6 +27,15 @@ def is_coat_gerber(path):
     }
 
 
+def hardware_revision(release_tag):
+    """Map a versioned release (03.0) to its KiCad hardware revision (03)."""
+    version = re.fullmatch(
+        r"v?([0-9]+)\.[0-9]+(?:\.[0-9]+)?(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?",
+        release_tag,
+    )
+    return version.group(1) if version else release_tag
+
+
 def build_packages(root, revision, exclude_patterns="", timestamp=None):
     root = Path(root).resolve()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", revision):
@@ -129,7 +138,10 @@ def build_packages(root, revision, exclude_patterns="", timestamp=None):
 
 if __name__ == "__main__":
     try:
-        build_packages(Path.cwd(), os.environ["REVISION"], os.environ.get("EXCLUDE_PATTERNS", ""))
+        release_tag = os.environ["REVISION"]
+        revision = hardware_revision(release_tag)
+        print(f"Release tag: {release_tag}; hardware revision: {revision}")
+        build_packages(Path.cwd(), revision, os.environ.get("EXCLUDE_PATTERNS", ""))
     except (ValueError, OSError, KeyError) as error:
         print(f"::error::{error}", file=sys.stderr)
         sys.exit(1)

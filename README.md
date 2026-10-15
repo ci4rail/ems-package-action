@@ -25,7 +25,7 @@ IOU16-prod/
 └── IOU16-01-odb++.zip         # optional; included when present
 ```
 
-The project name comes from the production folder (`IOU16-prod` → `IOU16`), independently of the repository name (`hw-iou16`, for example). The hardware revision is the release tag, used as-is. Each direct child directory of `assembly/` must be a unique single-letter variant (case insensitive). Its files are included recursively. Each variant must contain `<Project>-<Revision><Variant>_BOM.csv`; a missing or excluded BOM fails the build, including when the release tag does not match the exported revision. The old layout with BOMs directly under `assembly/` is not supported.
+The project name comes from the production folder (`IOU16-prod` → `IOU16`), independently of the repository name (`hw-iou16`, for example). Release tags use `<hardware revision>.<release version>`: `03.0` is the first release of hardware revision `03`, `03.1` the next release of the same hardware. Only the first component is used to match the KiCad exports; leading zeros are preserved. Three-component tags such as `03.0.0` and an optional `v` prefix are also accepted for compatibility. Prerelease and build suffixes are accepted. Other tags (for example `03` or `R03`) are used as-is. The upload still targets the original release tag. Each direct child directory of `assembly/` must be a unique single-letter variant (case insensitive). Its files are included recursively. Each variant must contain `<Project>-<Revision><Variant>_BOM.csv`; a missing or excluded BOM fails the build, including when the hardware revision derived from the release tag does not match the exported revision. The old layout with BOMs directly under `assembly/` is not supported.
 
 If there are several `*-prod` directories, exactly one folder name must contain the release revision (case insensitive). Otherwise the build fails.
 
@@ -86,3 +86,9 @@ Run the packaging integration tests locally:
 ```sh
 python3 -m unittest discover -s tests -v
 ```
+
+## Migrating callers from the old v1 implementation
+
+The original `v1` tag points to the implementation that creates a single repository ZIP. This variant-aware implementation must be published and the caller must reference its commit or an updated release tag. Updating `main` alone does not move `v1`.
+
+For example, a release tagged `03.0` with production files named `IOUB3-03A_BOM.csv` and `IOUB3-03B_BOM.csv` produces packages named `IOUB3-03A-…`, `IOUB3-03AZ-…`, `IOUB3-03B-…`, and `IOUB3-03BZ-…`.
